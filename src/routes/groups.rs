@@ -5,13 +5,9 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    state::AppState,
     error::AppError,
-    models::{
-        api::ApiResponse,
-        group::Group,
-        member::GroupMember,
-    },
+    models::{api::ApiResponse, group::Group, member::GroupMember},
+    state::AppState,
 };
 
 // ======================================================
@@ -57,7 +53,6 @@ pub async fn create_group(
 
     Ok(Json(ApiResponse::success(group)))
 }
-
 
 // ======================================================
 // PUT /groups/:id (owner | admin)
@@ -162,10 +157,7 @@ pub async fn unassign_lab(
     State(state): State<AppState>,
     Path((group_id, lab_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    state
-        .groups_service
-        .unassign_lab(group_id, lab_id)
-        .await?;
+    state.groups_service.unassign_lab(group_id, lab_id).await?;
 
     Ok(Json(ApiResponse::success(())))
 }
@@ -225,7 +217,6 @@ pub struct CreateGroupPayload {
     pub creator_id: Uuid,
     pub created_by: Uuid,
 }
-
 
 #[derive(Deserialize)]
 pub struct UpdateGroupPayload {

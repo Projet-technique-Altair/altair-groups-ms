@@ -4,9 +4,9 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
+        assignments::{GroupLabRow, GroupStarpathRow},
         group::{Group, GroupRow},
         member::{GroupMember, GroupMemberRow},
-        assignments::{GroupLabRow, GroupStarpathRow},
     },
 };
 
@@ -34,7 +34,7 @@ impl GroupsService {
                 created_at
             FROM groups
             ORDER BY created_at DESC
-            "#
+            "#,
         )
         .fetch_all(&self.db)
         .await
@@ -55,7 +55,7 @@ impl GroupsService {
                 created_at
             FROM groups
             WHERE group_id = $1
-            "#
+            "#,
         )
         .bind(group_id)
         .fetch_one(&self.db)
@@ -83,7 +83,7 @@ impl GroupsService {
                 description,
                 created_by,
                 created_at
-            "#
+            "#,
         )
         .bind(name)
         .bind(description)
@@ -115,7 +115,7 @@ impl GroupsService {
                 description,
                 created_by,
                 created_at
-            "#
+            "#,
         )
         .bind(name)
         .bind(description)
@@ -132,7 +132,7 @@ impl GroupsService {
             r#"
             DELETE FROM groups
             WHERE group_id = $1
-            "#
+            "#,
         )
         .bind(group_id)
         .execute(&self.db)
@@ -159,7 +159,7 @@ impl GroupsService {
             FROM group_members
             WHERE group_id = $1
             ORDER BY joined_at ASC
-            "#
+            "#,
         )
         .bind(group_id)
         .fetch_all(&self.db)
@@ -180,7 +180,7 @@ impl GroupsService {
             INSERT INTO group_members (group_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT DO NOTHING
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(user_id)
@@ -198,7 +198,7 @@ impl GroupsService {
             DELETE FROM group_members
             WHERE group_id = $1
               AND user_id = $2
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(user_id)
@@ -225,7 +225,7 @@ impl GroupsService {
                 due_date
             FROM group_labs
             WHERE group_id = $1
-            "#
+            "#,
         )
         .bind(group_id)
         .fetch_all(&self.db)
@@ -241,7 +241,7 @@ impl GroupsService {
             INSERT INTO group_labs (group_id, lab_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(lab_id)
@@ -258,7 +258,7 @@ impl GroupsService {
             DELETE FROM group_labs
             WHERE group_id = $1
               AND lab_id = $2
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(lab_id)
@@ -284,7 +284,7 @@ impl GroupsService {
                 assigned_at
             FROM group_starpaths
             WHERE group_id = $1
-            "#
+            "#,
         )
         .bind(group_id)
         .fetch_all(&self.db)
@@ -294,17 +294,13 @@ impl GroupsService {
         Ok(rows.into_iter().map(|r| r.starpath_id).collect())
     }
 
-    pub async fn assign_starpath(
-        &self,
-        group_id: Uuid,
-        starpath_id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn assign_starpath(&self, group_id: Uuid, starpath_id: Uuid) -> Result<(), AppError> {
         sqlx::query(
             r#"
             INSERT INTO group_starpaths (group_id, starpath_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(starpath_id)
@@ -325,7 +321,7 @@ impl GroupsService {
             DELETE FROM group_starpaths
             WHERE group_id = $1
               AND starpath_id = $2
-            "#
+            "#,
         )
         .bind(group_id)
         .bind(starpath_id)

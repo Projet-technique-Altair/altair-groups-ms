@@ -1,4 +1,6 @@
-use serde::{Serialize, Deserialize};
+#![allow(dead_code)]
+
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -55,7 +57,7 @@ impl TryFrom<GroupMemberRow> for GroupMember {
             }
         };
 
-        Ok(GroupMember {
+        Ok(Self {
             user_id: row.user_id,
             role,
             joined_at: row.joined_at,

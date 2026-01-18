@@ -1,8 +1,11 @@
-use serde::{Serialize, Deserialize};
+#![allow(dead_code)]
+
+
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-/// ===== LAB ASSIGNMENTS =====
+
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupLabRow {
@@ -17,13 +20,10 @@ pub struct GroupLab {
 
 impl From<GroupLabRow> for GroupLab {
     fn from(row: GroupLabRow) -> Self {
-        GroupLab {
-            lab_id: row.lab_id,
-        }
+        Self { lab_id: row.lab_id }
     }
 }
 
-/// ===== STARPATH ASSIGNMENTS =====
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupStarpathRow {
@@ -38,7 +38,7 @@ pub struct GroupStarpath {
 
 impl From<GroupStarpathRow> for GroupStarpath {
     fn from(row: GroupStarpathRow) -> Self {
-        GroupStarpath {
+        Self {
             starpath_id: row.starpath_id,
         }
     }
