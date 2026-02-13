@@ -20,7 +20,7 @@ impl GroupsService {
         Self { db }
     }
 
-    // ========= GROUPS =========
+    // ========= GROUPS ==========
 
     pub async fn list_groups(&self) -> Result<Vec<Group>, AppError> {
         let rows = sqlx::query_as::<_, GroupRow>(
