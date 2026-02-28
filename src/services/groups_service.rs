@@ -43,6 +43,35 @@ impl GroupsService {
         rows.into_iter().map(Group::try_from).collect()
     }
 
+    pub async fn list_groups_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Group>, AppError> {
+        let rows = sqlx::query_as::<_, GroupRow>(
+            r#"
+            SELECT DISTINCT
+                g.group_id,
+                g.creator_id,
+                g.name,
+                g.description,
+                g.created_by,
+                g.created_at
+            FROM groups g
+            LEFT JOIN group_members gm
+                ON g.group_id = gm.group_id
+            WHERE g.creator_id = $1
+            OR gm.user_id = $1
+            ORDER BY g.created_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        rows.into_iter().map(Group::try_from).collect()
+    }
+
     pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
@@ -334,5 +363,27 @@ impl GroupsService {
         }
 
         Ok(())
+    }
+
+    pub async fn is_member(
+        &self,
+        group_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool, AppError> {
+        let exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM group_members
+                WHERE group_id = $1 AND user_id = $2
+            )
+            "#,
+            group_id,
+            user_id
+        )
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(exists.unwrap_or(false))
     }
 }
