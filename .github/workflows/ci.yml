@@ -11,6 +11,6 @@ permissions:
 
 jobs:
   ci:
-    uses: Projet-technique-Altair/altair-ci/.github/workflows/rust-ms.yml@v1
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/groups-ci.yml@main
     with:
       rust_toolchain: stable
