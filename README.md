@@ -107,6 +107,9 @@ DATABASE_URL=postgresql://altair:altair@localhost:5434/altair_groups_db
 # Server configuration
 PORT=3006                                       # Server port (default: 3006)
 RUST_LOG=info                                   # Log level filter
+
+# Gateway (required)
+GATEWAY_URL=http://localhost:3000
 ```
 
 **⚠️ Database Port Note:** If using `altair-infra` Docker Compose, the Groups database is on port `5434`, not the default `5432`.

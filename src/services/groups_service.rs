@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
-        assignments::{GroupLabRow, GroupStarpathRow},
+        assignments::{GroupLabRow, GroupStarpathRow, GroupLab},
         group::{Group, GroupRow},
         member::{GroupMember, GroupMemberRow},
     },
@@ -43,10 +43,7 @@ impl GroupsService {
         rows.into_iter().map(Group::try_from).collect()
     }
 
-    pub async fn list_groups_for_user(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<Group>, AppError> {
+    pub async fn list_groups_for_user(&self, user_id: Uuid) -> Result<Vec<Group>, AppError> {
         let rows = sqlx::query_as::<_, GroupRow>(
             r#"
             SELECT DISTINCT
@@ -71,6 +68,33 @@ impl GroupsService {
 
         rows.into_iter().map(Group::try_from).collect()
     }
+
+    // ==========================
+    // GET /mygroups (creator's groups only)
+    // ==========================
+    pub async fn my_groups(&self, creator_id: Uuid) -> Result<Vec<Group>, AppError> {
+        let rows = sqlx::query_as::<_, GroupRow>(
+            r#"
+            SELECT
+                group_id,
+                creator_id,
+                name,
+                description,
+                created_by,
+                created_at
+            FROM groups
+            WHERE creator_id = $1
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(creator_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        rows.into_iter().map(Group::try_from).collect()
+    }
+
 
     pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
@@ -244,7 +268,7 @@ impl GroupsService {
 
     // ========= LAB ASSIGNMENTS =========
 
-    pub async fn list_labs(&self, group_id: Uuid) -> Result<Vec<Uuid>, AppError> {
+    pub async fn list_labs(&self, group_id: Uuid) -> Result<Vec<GroupLab>, AppError> {
         let rows = sqlx::query_as::<_, GroupLabRow>(
             r#"
             SELECT
@@ -261,7 +285,8 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| r.lab_id).collect())
+        //Ok(rows.into_iter().map(|r| r.lab_id).collect())
+        Ok(rows.into_iter().map(|r| GroupLab { lab_id: r.lab_id }).collect())
     }
 
     pub async fn assign_lab(&self, group_id: Uuid, lab_id: Uuid) -> Result<(), AppError> {

@@ -64,3 +64,4 @@ impl TryFrom<GroupMemberRow> for GroupMember {
         })
     }
 }
+

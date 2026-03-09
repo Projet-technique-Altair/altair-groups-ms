@@ -8,7 +8,7 @@ use crate::services::extractor::extract_caller;
 
 use crate::{
     error::AppError,
-    models::{api::ApiResponse, group::Group, member::GroupMember},
+    models::{api::ApiResponse, group::Group, member::GroupMember, assignments::GroupLab},
     state::AppState,
 };
 
@@ -36,6 +36,20 @@ pub async fn list_groups(
         state.groups_service.list_groups_for_user(caller.user_id).await?
     };
 
+    Ok(Json(ApiResponse::success(groups)))
+}
+
+// ==========================
+// GET /mygroups (creator's groups only)
+// ==========================
+pub async fn my_groups(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<ApiResponse<Vec<Group>>>, AppError> {
+
+    let caller = extract_caller(&headers)?;
+
+    let groups = state.groups_service.my_groups(caller.user_id).await?;
     Ok(Json(ApiResponse::success(groups)))
 }
 
@@ -72,15 +86,19 @@ pub async fn get_group_by_id(
 // ======================================================
 pub async fn create_group(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<CreateGroupPayload>,
 ) -> Result<Json<ApiResponse<Group>>, AppError> {
+
+    let caller = extract_caller(&headers)?;
+
     let group = state
         .groups_service
         .create_group(
             payload.name,
             payload.description,
-            payload.creator_id,
-            payload.created_by,
+            caller.user_id,
+            caller.user_id,
         )
         .await?;
 
@@ -118,9 +136,9 @@ pub async fn update_group(
     Ok(Json(ApiResponse::success(group)))
 }
 
-// ======================================================
-// DELETE /groups/:id (owner | admin)
-// ======================================================
+// ==========================
+// DELETE /groups/:id (owner/admin)
+// ==========================
 pub async fn delete_group(
     State(state): State<AppState>,
     Path(group_id): Path<Uuid>,
@@ -136,11 +154,12 @@ pub async fn delete_group(
 
     if !is_admin && !is_owner {
         return Err(AppError::Forbidden(
-            "You are not allowed to update this group".into(),
+            "You are not allowed to delete this group".into(),
         ));
     }
 
     state.groups_service.delete_group(group_id).await?;
+
     Ok(Json(ApiResponse::success(())))
 }
 
@@ -238,7 +257,7 @@ pub async fn list_labs(
     State(state): State<AppState>,
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
-) -> Result<Json<ApiResponse<Vec<Uuid>>>, AppError> {
+) -> Result<Json<ApiResponse<Vec<GroupLab>>>, AppError> {
 
     let caller = extract_caller(&headers)?;
 
@@ -414,8 +433,6 @@ use serde::Deserialize;
 pub struct CreateGroupPayload {
     pub name: String,
     pub description: Option<String>,
-    pub creator_id: Uuid,
-    pub created_by: Uuid,
 }
 
 #[derive(Deserialize)]
