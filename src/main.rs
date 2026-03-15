@@ -22,11 +22,13 @@ async fn main() {
 
     let app = init_routes().with_state(state).layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3006")
-        .await
-        .expect("Failed to bind port 3006");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3006".to_string());
 
-    println!("Groups MS running on http://localhost:3006");
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+        .await
+        .expect("Failed to bind groups-ms port");
+
+    println!("Groups MS running on http://localhost:{}", port);
 
     axum::serve(listener, app).await.unwrap();
 }
