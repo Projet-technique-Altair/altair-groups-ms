@@ -403,12 +403,12 @@ impl GroupsService {
                 WHERE group_id = $1 AND user_id = $2
             )
             "#,
-            group_id,
-            user_id
         )
+        .bind(group_id)
+        .bind(user_id)
         .fetch_one(&self.db)
         .await?;
 
-        Ok(exists.unwrap_or(false))
+        Ok(exists)
     }
 }
