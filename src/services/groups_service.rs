@@ -395,7 +395,7 @@ impl GroupsService {
         group_id: Uuid,
         user_id: Uuid,
     ) -> Result<bool, AppError> {
-        let exists = sqlx::query_scalar!(
+        let exists = sqlx::query_scalar::<_, bool>(
             r#"
             SELECT EXISTS (
                 SELECT 1
