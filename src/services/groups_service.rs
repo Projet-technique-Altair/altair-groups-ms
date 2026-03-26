@@ -411,4 +411,59 @@ impl GroupsService {
 
         Ok(exists)
     }
+
+    // ==========================
+    // GET /user_access_lab
+    // ==========================
+    pub async fn user_has_access_to_lab(
+        &self,
+        user_id: Uuid,
+        lab_id: Uuid,
+    ) -> Result<bool, AppError> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM group_members gm
+                JOIN group_labs gl ON gm.group_id = gl.group_id
+                WHERE gm.user_id = $1
+                AND gl.lab_id = $2
+            )
+            "#,
+        )
+        .bind(user_id)
+        .bind(lab_id)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(exists)
+    }
+
+
+    // ==========================
+    // GET /user_access_starpath
+    // ==========================
+    pub async fn user_has_access_to_starpath(
+        &self,
+        user_id: Uuid,
+        starpath_id: Uuid,
+    ) -> Result<bool, AppError> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM group_members gm
+                JOIN group_starpaths gs ON gm.group_id = gs.group_id
+                WHERE gm.user_id = $1
+                AND gs.starpath_id = $2
+            )
+            "#,
+        )
+        .bind(user_id)
+        .bind(starpath_id)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(exists)
+    }
 }

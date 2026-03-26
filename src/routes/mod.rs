@@ -9,7 +9,7 @@ use crate::routes::{
     groups::{
         add_member, assign_lab, assign_starpath, create_group, delete_group, get_group_by_id,
         list_groups, list_labs, list_members, list_starpaths, remove_member, unassign_lab,
-        unassign_starpath, update_group, my_groups,
+        unassign_starpath, update_group, my_groups, check_lab_access, check_starpath_access,
     },
     health::health,
 };
@@ -36,6 +36,8 @@ pub fn init_routes() -> Router<AppState> {
         .route("/groups/:id/labs/:lab_id", delete(unassign_lab))
         // Starpaths assignments
         .route("/groups/:id/starpaths", get(list_starpaths).post(assign_starpath))
-        .route("/groups/:id/starpaths/:starpath_id", delete(unassign_starpath),
-        )
+        .route("/groups/:id/starpaths/:starpath_id", delete(unassign_starpath))
+        // Verifications
+        .route("/internal/access/lab", get(check_lab_access))
+        .route("/internal/access/starpath", get(check_starpath_access))
 }
