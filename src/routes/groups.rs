@@ -12,6 +12,10 @@ use crate::{
     state::AppState,
 };
 
+use axum::extract::Query;
+use serde::Deserialize;
+
+
 // ======================================================
 // GET /groups (public)
 // ======================================================
@@ -423,11 +427,44 @@ pub async fn unassign_starpath(
     Ok(Json(ApiResponse::success(())))
 }
 
+
+// ======================================================
+// GET access labs
+// ======================================================
+pub async fn check_lab_access(
+    State(state): State<AppState>,
+    Query(params): Query<AccessLabQuery>,
+) -> Result<Json<ApiResponse<bool>>, AppError> {
+
+    let allowed = state
+        .groups_service
+        .user_has_access_to_lab(params.user_id, params.lab_id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(allowed)))
+}
+
+
+// ======================================================
+// GET access starpath
+// ======================================================
+pub async fn check_starpath_access(
+    State(state): State<AppState>,
+    Query(params): Query<AccessStarpathQuery>,
+) -> Result<Json<ApiResponse<bool>>, AppError> {
+
+    let allowed = state
+        .groups_service
+        .user_has_access_to_starpath(params.user_id, params.starpath_id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(allowed)))
+}
+
+
 // ======================================================
 // Payloads
 // ======================================================
-
-use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct CreateGroupPayload {
@@ -453,5 +490,17 @@ pub struct AssignLabPayload {
 
 #[derive(Deserialize)]
 pub struct AssignStarpathPayload {
+    pub starpath_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct AccessLabQuery {
+    pub user_id: Uuid,
+    pub lab_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct AccessStarpathQuery {
+    pub user_id: Uuid,
     pub starpath_id: Uuid,
 }
