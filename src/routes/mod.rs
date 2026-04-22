@@ -1,3 +1,30 @@
+/**
+ * @file routes — application route registration.
+ *
+ * @remarks
+ * Defines and registers all HTTP routes for the Groups service.
+ *
+ *  - Mounts feature routes (groups, health)
+ *  - Binds endpoints to their handlers
+ *  - Attaches shared application state (`AppState`)
+ *
+ * Route categories:
+ *
+ *  - Health (`/health`)
+ *  - Groups CRUD (`/groups`, `/mygroups`)
+ *  - Members management
+ *  - Resource assignments (labs & starpaths)
+ *  - Internal access checks (`/internal/*`)
+ *
+ * Key characteristics:
+ *
+ *  - Centralized routing configuration
+ *  - Clear separation between route definition and handler logic
+ *  - Internal routes exposed for inter-service communication
+ *
+ * @packageDocumentation
+ */*/
+
 use axum::{
     routing::{delete, get},
     Router,
@@ -17,7 +44,6 @@ use crate::routes::{
 pub mod groups;
 pub mod health;
 
-//// AJOUTER UN TRUC SUR LABS POUR L'AJOUTER DANS UN GROUP À LA CRÉATION
 
 pub fn init_routes() -> Router<AppState> {
     Router::new()

@@ -1,3 +1,31 @@
+/**
+ * @file groups — HTTP routes for group management.
+ *
+ * @remarks
+ * Defines all REST endpoints related to Groups:
+ *
+ *  - Group lifecycle (list, create, update, delete)
+ *  - Membership management (add/remove/list members)
+ *  - Resource assignments (labs & starpaths)
+ *  - Access checks (labs & starpaths)
+ *
+ * Each handler:
+ *
+ *  - Extracts caller identity via headers (`extract_caller`)
+ *  - Applies RBAC rules (admin, owner, member)
+ *  - Delegates business logic to `GroupsService`
+ *  - Returns standardized responses (`ApiResponse`)
+ *
+ * Key characteristics:
+ *
+ *  - Centralized authorization checks per route
+ *  - Clear separation: HTTP layer vs business logic
+ *  - Consistent error handling via `AppError`
+ *  - Supports both user-scoped and admin-level access
+ *
+ * @packageDocumentation
+ */
+
 use axum::{
     extract::{Path, State},
     Json,
@@ -19,13 +47,6 @@ use serde::Deserialize;
 // ======================================================
 // GET /groups (public)
 // ======================================================
-/*pub async fn list_groups(
-    State(state): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<Group>>>, AppError> {
-    let groups = state.groups_service.list_groups().await?;
-    Ok(Json(ApiResponse::success(groups)))
-}*/
-
 pub async fn list_groups(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -1,3 +1,34 @@
+/**
+ * @file groups_service — business logic for group management.
+ *
+ * @remarks
+ * This service handles all core operations related to Groups in Altaïr:
+ *
+ *  - Group lifecycle (create, read, update, delete)
+ *  - Membership management (users & roles)
+ *  - Resource assignments (labs & starpaths)
+ *  - Access checks (membership and resource access)
+ *
+ * It acts as the bridge between:
+ *
+ *  - The database (PostgreSQL via SQLx)
+ *  - The HTTP layer (handlers)
+ *
+ * Key characteristics:
+ *
+ *  - Direct SQL queries (no ORM) for control and performance
+ *  - Strong typing with UUIDs
+ *  - Idempotent assignments (`ON CONFLICT DO NOTHING`)
+ *  - Explicit error handling via `AppError`
+ *
+ * Access control:
+ *
+ *  - Helper methods (`is_member`, `user_has_access_*`) are used
+ *    by handlers and gateway to enforce permissions.
+ *
+ * @packageDocumentation
+ */
+
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -96,6 +127,9 @@ impl GroupsService {
     }
 
 
+    // ==========================
+    // GET /groups_by_id
+    // ==========================
     pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
@@ -118,6 +152,9 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    // ==========================
+    // POST /group
+    // ==========================
     pub async fn create_group(
         &self,
         name: String,
@@ -149,6 +186,9 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    // ==========================
+    // PUT /mygroup_id
+    // ==========================
     pub async fn update_group(
         &self,
         group_id: Uuid,
@@ -180,6 +220,9 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    // ==========================
+    // DELETE /group_id
+    // ==========================
     pub async fn delete_group(&self, group_id: Uuid) -> Result<(), AppError> {
         let result = sqlx::query(
             r#"
@@ -285,7 +328,6 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        //Ok(rows.into_iter().map(|r| r.lab_id).collect())
         Ok(rows.into_iter().map(|r| GroupLab { lab_id: r.lab_id }).collect())
     }
 
