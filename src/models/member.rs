@@ -35,7 +35,7 @@
  * Data model separation:
  *
  *  - `GroupMemberRow`
- *      → مستقیم mapping of database rows (SQLx)
+ *      → Direct mapping of database rows (SQLx)
  *      → Stores role as a raw `String`
  *
  *  - `GroupMember`
