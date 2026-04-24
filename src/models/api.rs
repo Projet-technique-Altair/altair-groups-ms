@@ -29,7 +29,6 @@
  *
  * @packageDocumentation
  */
-
 use serde::Serialize;
 
 #[derive(Serialize)]

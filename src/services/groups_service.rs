@@ -28,14 +28,13 @@
  *
  * @packageDocumentation
  */
-
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     models::{
-        assignments::{GroupLabRow, GroupStarpathRow, GroupLab},
+        assignments::{GroupLab, GroupLabRow, GroupStarpath, GroupStarpathRow},
         group::{Group, GroupRow},
         member::{GroupMember, GroupMemberRow},
     },
@@ -72,6 +71,58 @@ impl GroupsService {
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
         rows.into_iter().map(Group::try_from).collect()
+    }
+
+    pub async fn list_groups_admin(
+        &self,
+        query: Option<String>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Group>, i64), AppError> {
+        let query_pattern = query
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .map(|value| format!("%{}%", value));
+
+        let rows = sqlx::query_as::<_, GroupRow>(
+            r#"
+            SELECT
+                group_id,
+                creator_id,
+                name,
+                description,
+                created_by,
+                created_at
+            FROM groups
+            WHERE ($1::TEXT IS NULL OR name ILIKE $1 OR description ILIKE $1)
+            ORDER BY created_at DESC
+            LIMIT $2
+            OFFSET $3
+            "#,
+        )
+        .bind(query_pattern.as_deref())
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        let total = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM groups
+            WHERE ($1::TEXT IS NULL OR name ILIKE $1 OR description ILIKE $1)
+            "#,
+        )
+        .bind(query_pattern.as_deref())
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        rows.into_iter()
+            .map(Group::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map(|items| (items, total))
     }
 
     pub async fn list_groups_for_user(&self, user_id: Uuid) -> Result<Vec<Group>, AppError> {
@@ -125,7 +176,6 @@ impl GroupsService {
 
         rows.into_iter().map(Group::try_from).collect()
     }
-
 
     // ==========================
     // GET /groups_by_id
@@ -328,7 +378,10 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| GroupLab { lab_id: r.lab_id }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| GroupLab { lab_id: r.lab_id })
+            .collect())
     }
 
     pub async fn assign_lab(&self, group_id: Uuid, lab_id: Uuid) -> Result<(), AppError> {
@@ -371,7 +424,7 @@ impl GroupsService {
 
     // ========= STARPATH ASSIGNMENTS =========
 
-    pub async fn list_starpaths(&self, group_id: Uuid) -> Result<Vec<Uuid>, AppError> {
+    pub async fn list_starpaths(&self, group_id: Uuid) -> Result<Vec<GroupStarpath>, AppError> {
         let rows = sqlx::query_as::<_, GroupStarpathRow>(
             r#"
             SELECT
@@ -387,7 +440,7 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| r.starpath_id).collect())
+        Ok(rows.into_iter().map(GroupStarpath::from).collect())
     }
 
     pub async fn assign_starpath(&self, group_id: Uuid, starpath_id: Uuid) -> Result<(), AppError> {
@@ -432,11 +485,7 @@ impl GroupsService {
         Ok(())
     }
 
-    pub async fn is_member(
-        &self,
-        group_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<bool, AppError> {
+    pub async fn is_member(&self, group_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
         let exists = sqlx::query_scalar::<_, bool>(
             r#"
             SELECT EXISTS (
@@ -480,7 +529,6 @@ impl GroupsService {
 
         Ok(exists)
     }
-
 
     // ==========================
     // GET /user_access_starpath

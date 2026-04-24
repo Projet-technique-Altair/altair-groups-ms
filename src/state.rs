@@ -21,7 +21,6 @@
  *
  * @packageDocumentation
  */
-
 use crate::services::groups_service::GroupsService;
 use sqlx::PgPool;
 

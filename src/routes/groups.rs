@@ -1,3 +1,4 @@
+use crate::services::extractor::extract_caller;
 /**
  * @file groups — HTTP routes for group management.
  *
@@ -25,24 +26,25 @@
  *
  * @packageDocumentation
  */
-
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
+    http::HeaderMap,
     Json,
 };
 use uuid::Uuid;
-use axum::http::HeaderMap;
-use crate::services::extractor::extract_caller;
 
 use crate::{
     error::AppError,
-    models::{api::ApiResponse, group::Group, member::GroupMember, assignments::GroupLab},
+    models::{
+        api::ApiResponse,
+        assignments::{GroupLab, GroupStarpath},
+        group::Group,
+        member::GroupMember,
+    },
     state::AppState,
 };
 
-use axum::extract::Query;
-use serde::Deserialize;
-
+use serde::{Deserialize, Serialize};
 
 // ======================================================
 // GET /groups (public)
@@ -51,17 +53,48 @@ pub async fn list_groups(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<Group>>>, AppError> {
-
     let caller = extract_caller(&headers)?;
     let is_admin = caller.roles.iter().any(|r| r == "admin");
 
     let groups = if is_admin {
         state.groups_service.list_groups().await?
     } else {
-        state.groups_service.list_groups_for_user(caller.user_id).await?
+        state
+            .groups_service
+            .list_groups_for_user(caller.user_id)
+            .await?
     };
 
     Ok(Json(ApiResponse::success(groups)))
+}
+
+pub async fn list_groups_admin(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<AdminGroupsQuery>,
+) -> Result<Json<ApiResponse<PaginatedGroups>>, AppError> {
+    let caller = extract_caller(&headers)?;
+    let is_admin = caller.roles.iter().any(|r| r == "admin");
+
+    if !is_admin {
+        return Err(AppError::Forbidden(
+            "Admin role is required to list all groups".into(),
+        ));
+    }
+
+    let limit = params.limit.unwrap_or(200).clamp(1, 500);
+    let offset = params.offset.unwrap_or(0).max(0);
+    let (items, total) = state
+        .groups_service
+        .list_groups_admin(params.q, limit, offset)
+        .await?;
+
+    Ok(Json(ApiResponse::success(PaginatedGroups {
+        items,
+        total,
+        limit,
+        offset,
+    })))
 }
 
 // ==========================
@@ -71,7 +104,6 @@ pub async fn my_groups(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<Group>>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let groups = state.groups_service.my_groups(caller.user_id).await?;
@@ -86,14 +118,16 @@ pub async fn get_group_by_id(
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Group>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
 
     let is_admin = caller.roles.iter().any(|r| r == "admin");
     let is_owner = caller.user_id == existing_group.creator_id;
-    let is_member = state.groups_service.is_member(group_id, caller.user_id).await?;
+    let is_member = state
+        .groups_service
+        .is_member(group_id, caller.user_id)
+        .await?;
 
     if !(is_admin || is_owner || is_member) {
         return Err(AppError::Forbidden(
@@ -105,7 +139,6 @@ pub async fn get_group_by_id(
     Ok(Json(ApiResponse::success(group)))
 }
 
-
 // ======================================================
 // POST /groups (teacher | admin)
 // ======================================================
@@ -114,7 +147,6 @@ pub async fn create_group(
     headers: HeaderMap,
     Json(payload): Json<CreateGroupPayload>,
 ) -> Result<Json<ApiResponse<Group>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let group = state
@@ -139,7 +171,6 @@ pub async fn update_group(
     headers: HeaderMap,
     Json(payload): Json<UpdateGroupPayload>,
 ) -> Result<Json<ApiResponse<Group>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -169,7 +200,6 @@ pub async fn delete_group(
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -196,7 +226,6 @@ pub async fn list_members(
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<GroupMember>>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -223,7 +252,6 @@ pub async fn add_member(
     headers: HeaderMap,
     Json(payload): Json<AddMemberPayload>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -253,7 +281,6 @@ pub async fn remove_member(
     Path((group_id, user_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -283,14 +310,16 @@ pub async fn list_labs(
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<GroupLab>>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
 
     let is_admin = caller.roles.iter().any(|r| r == "admin");
     let is_owner = caller.user_id == existing_group.creator_id;
-    let is_member = state.groups_service.is_member(group_id, caller.user_id).await?;
+    let is_member = state
+        .groups_service
+        .is_member(group_id, caller.user_id)
+        .await?;
 
     if !(is_admin || is_owner || is_member) {
         return Err(AppError::Forbidden(
@@ -311,7 +340,6 @@ pub async fn assign_lab(
     headers: HeaderMap,
     Json(payload): Json<AssignLabPayload>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -341,7 +369,6 @@ pub async fn unassign_lab(
     Path((group_id, lab_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -367,15 +394,17 @@ pub async fn list_starpaths(
     State(state): State<AppState>,
     Path(group_id): Path<Uuid>,
     headers: HeaderMap,
-) -> Result<Json<ApiResponse<Vec<Uuid>>>, AppError> {
-
+) -> Result<Json<ApiResponse<Vec<GroupStarpath>>>, AppError> {
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
 
     let is_admin = caller.roles.iter().any(|r| r == "admin");
     let is_owner = caller.user_id == existing_group.creator_id;
-    let is_member = state.groups_service.is_member(group_id, caller.user_id).await?;
+    let is_member = state
+        .groups_service
+        .is_member(group_id, caller.user_id)
+        .await?;
 
     if !(is_admin || is_owner || is_member) {
         return Err(AppError::Forbidden(
@@ -396,7 +425,6 @@ pub async fn assign_starpath(
     Path(group_id): Path<Uuid>,
     Json(payload): Json<AssignStarpathPayload>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -426,7 +454,6 @@ pub async fn unassign_starpath(
     Path((group_id, starpath_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-
     let caller = extract_caller(&headers)?;
 
     let existing_group = state.groups_service.get_group_by_id(group_id).await?;
@@ -448,7 +475,6 @@ pub async fn unassign_starpath(
     Ok(Json(ApiResponse::success(())))
 }
 
-
 // ======================================================
 // GET access labs
 // ======================================================
@@ -456,7 +482,6 @@ pub async fn check_lab_access(
     State(state): State<AppState>,
     Query(params): Query<AccessLabQuery>,
 ) -> Result<Json<ApiResponse<bool>>, AppError> {
-
     let allowed = state
         .groups_service
         .user_has_access_to_lab(params.user_id, params.lab_id)
@@ -465,7 +490,6 @@ pub async fn check_lab_access(
     Ok(Json(ApiResponse::success(allowed)))
 }
 
-
 // ======================================================
 // GET access starpath
 // ======================================================
@@ -473,7 +497,6 @@ pub async fn check_starpath_access(
     State(state): State<AppState>,
     Query(params): Query<AccessStarpathQuery>,
 ) -> Result<Json<ApiResponse<bool>>, AppError> {
-
     let allowed = state
         .groups_service
         .user_has_access_to_starpath(params.user_id, params.starpath_id)
@@ -481,7 +504,6 @@ pub async fn check_starpath_access(
 
     Ok(Json(ApiResponse::success(allowed)))
 }
-
 
 // ======================================================
 // Payloads
@@ -524,4 +546,19 @@ pub struct AccessLabQuery {
 pub struct AccessStarpathQuery {
     pub user_id: Uuid,
     pub starpath_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct AdminGroupsQuery {
+    pub q: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct PaginatedGroups {
+    pub items: Vec<Group>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
 }

@@ -68,9 +68,6 @@
  *
  * @packageDocumentation
  */
-
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -86,20 +83,8 @@ pub enum GroupRole {
     Member,
 }
 
-impl GroupRole {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            GroupRole::Owner => "owner",
-            GroupRole::Admin => "admin",
-            GroupRole::Teacher => "teacher",
-            GroupRole::Member => "member",
-        }
-    }
-}
-
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupMemberRow {
-    pub group_id: Uuid,
     pub user_id: Uuid,
     pub role: String,
     pub joined_at: chrono::NaiveDateTime,
@@ -135,4 +120,3 @@ impl TryFrom<GroupMemberRow> for GroupMember {
         })
     }
 }
-

@@ -39,16 +39,12 @@
  *
  * @packageDocumentation
  */
-
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupLabRow {
-    pub group_id: Uuid,
     pub lab_id: Uuid,
 }
 
@@ -65,7 +61,6 @@ impl From<GroupLabRow> for GroupLab {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupStarpathRow {
-    pub group_id: Uuid,
     pub starpath_id: Uuid,
 }
 
