@@ -40,6 +40,14 @@ use crate::{
     },
 };
 
+#[derive(serde::Serialize)]
+pub struct AdminGroupDetail {
+    pub group: Group,
+    pub members: Vec<GroupMember>,
+    pub labs: Vec<GroupLab>,
+    pub starpaths: Vec<GroupStarpath>,
+}
+
 #[derive(Clone)]
 pub struct GroupsService {
     db: PgPool,
@@ -60,6 +68,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -91,6 +100,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -133,6 +143,7 @@ impl GroupsService {
                 g.creator_id,
                 g.name,
                 g.description,
+                g.status,
                 g.created_by,
                 g.created_at
             FROM groups g
@@ -162,6 +173,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -188,6 +200,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -214,13 +227,14 @@ impl GroupsService {
     ) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
-            INSERT INTO groups (name, description, creator_id, created_by)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO groups (name, description, creator_id, created_by, status)
+            VALUES ($1, $2, $3, $4, 'active')
             RETURNING
                 group_id,
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             "#,
@@ -256,6 +270,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             "#,
@@ -268,6 +283,58 @@ impl GroupsService {
         .map_err(|_| AppError::NotFound("Group not found".into()))?;
 
         Group::try_from(row)
+    }
+
+    pub async fn update_group_status(
+        &self,
+        group_id: Uuid,
+        status: &str,
+    ) -> Result<Group, AppError> {
+        if !matches!(status, "active" | "locked") {
+            return Err(AppError::BadRequest(
+                "Group status must be active or locked".into(),
+            ));
+        }
+
+        let row = sqlx::query_as::<_, GroupRow>(
+            r#"
+            UPDATE groups
+            SET status = $1
+            WHERE group_id = $2
+            RETURNING
+                group_id,
+                creator_id,
+                name,
+                description,
+                status,
+                created_by,
+                created_at
+            "#,
+        )
+        .bind(status)
+        .bind(group_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|_| AppError::NotFound("Group not found".into()))?;
+
+        Group::try_from(row)
+    }
+
+    pub async fn get_admin_group_detail(
+        &self,
+        group_id: Uuid,
+    ) -> Result<AdminGroupDetail, AppError> {
+        let group = self.get_group_by_id(group_id).await?;
+        let members = self.list_members(group_id).await?;
+        let labs = self.list_labs(group_id).await?;
+        let starpaths = self.list_starpaths(group_id).await?;
+
+        Ok(AdminGroupDetail {
+            group,
+            members,
+            labs,
+            starpaths,
+        })
     }
 
     // ==========================

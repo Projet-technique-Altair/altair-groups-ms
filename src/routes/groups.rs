@@ -97,6 +97,68 @@ pub async fn list_groups_admin(
     })))
 }
 
+pub async fn list_admin_user_groups(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<Uuid>,
+) -> Result<Json<ApiResponse<Vec<Group>>>, AppError> {
+    let caller = extract_caller(&headers)?;
+    let is_admin = caller.roles.iter().any(|r| r == "admin");
+
+    if !is_admin {
+        return Err(AppError::Forbidden(
+            "Admin role is required to inspect user groups".into(),
+        ));
+    }
+
+    let groups = state.groups_service.list_groups_for_user(user_id).await?;
+    Ok(Json(ApiResponse::success(groups)))
+}
+
+pub async fn get_admin_group_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(group_id): Path<Uuid>,
+) -> Result<Json<ApiResponse<crate::services::groups_service::AdminGroupDetail>>, AppError> {
+    let caller = extract_caller(&headers)?;
+    let is_admin = caller.roles.iter().any(|r| r == "admin");
+
+    if !is_admin {
+        return Err(AppError::Forbidden(
+            "Admin role is required to inspect group detail".into(),
+        ));
+    }
+
+    let detail = state
+        .groups_service
+        .get_admin_group_detail(group_id)
+        .await?;
+    Ok(Json(ApiResponse::success(detail)))
+}
+
+pub async fn update_group_status_admin(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(group_id): Path<Uuid>,
+    Json(payload): Json<UpdateGroupStatusPayload>,
+) -> Result<Json<ApiResponse<Group>>, AppError> {
+    let caller = extract_caller(&headers)?;
+    let is_admin = caller.roles.iter().any(|r| r == "admin");
+
+    if !is_admin {
+        return Err(AppError::Forbidden(
+            "Admin role is required to update group status".into(),
+        ));
+    }
+
+    let group = state
+        .groups_service
+        .update_group_status(group_id, payload.status.trim())
+        .await?;
+
+    Ok(Json(ApiResponse::success(group)))
+}
+
 // ==========================
 // GET /mygroups (creator's groups only)
 // ==========================
@@ -534,6 +596,11 @@ pub struct AssignLabPayload {
 #[derive(Deserialize)]
 pub struct AssignStarpathPayload {
     pub starpath_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateGroupStatusPayload {
+    pub status: String,
 }
 
 #[derive(Deserialize)]

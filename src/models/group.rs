@@ -63,6 +63,7 @@ pub struct GroupRow {
     pub creator_id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub status: String,
     pub created_by: Uuid,
     pub created_at: chrono::NaiveDateTime,
 }
@@ -73,6 +74,7 @@ pub struct Group {
     pub creator_id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub status: String,
     pub created_by: Uuid,
     pub created_at: chrono::NaiveDateTime,
 }
@@ -86,6 +88,7 @@ impl TryFrom<GroupRow> for Group {
             creator_id: row.creator_id,
             name: row.name,
             description: row.description,
+            status: row.status,
             created_by: row.created_by,
             created_at: row.created_at,
         })

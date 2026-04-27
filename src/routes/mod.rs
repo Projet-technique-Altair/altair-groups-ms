@@ -25,7 +25,7 @@
  * @packageDocumentation
  */*/
 use axum::{
-    routing::{delete, get},
+    routing::{delete, get, patch},
     Router,
 };
 
@@ -34,9 +34,10 @@ use crate::state::AppState;
 use crate::routes::{
     groups::{
         add_member, assign_lab, assign_starpath, check_lab_access, check_starpath_access,
-        create_group, delete_group, get_group_by_id, list_groups, list_groups_admin, list_labs,
-        list_members, list_starpaths, my_groups, remove_member, unassign_lab, unassign_starpath,
-        update_group,
+        create_group, delete_group, get_admin_group_detail, get_group_by_id,
+        list_admin_user_groups, list_groups, list_groups_admin, list_labs, list_members,
+        list_starpaths, my_groups, remove_member, unassign_lab, unassign_starpath, update_group,
+        update_group_status_admin,
     },
     health::health,
 };
@@ -50,6 +51,9 @@ pub fn init_routes() -> Router<AppState> {
         .route("/health", get(health))
         // Groups CRUD
         .route("/admin/groups", get(list_groups_admin))
+        .route("/admin/groups/:id/detail", get(get_admin_group_detail))
+        .route("/admin/groups/:id/status", patch(update_group_status_admin))
+        .route("/admin/users/:id/groups", get(list_admin_user_groups))
         .route("/groups", get(list_groups).post(create_group)) //faire sécu quand on aura mis public/privé
         .route("/mygroups", get(my_groups))
         .route(
