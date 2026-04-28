@@ -583,9 +583,11 @@ impl GroupsService {
             SELECT EXISTS (
                 SELECT 1
                 FROM group_members gm
+                JOIN groups g ON gm.group_id = g.group_id
                 JOIN group_labs gl ON gm.group_id = gl.group_id
                 WHERE gm.user_id = $1
                 AND gl.lab_id = $2
+                AND g.status = 'active'
             )
             "#,
         )
@@ -610,9 +612,11 @@ impl GroupsService {
             SELECT EXISTS (
                 SELECT 1
                 FROM group_members gm
+                JOIN groups g ON gm.group_id = g.group_id
                 JOIN group_starpaths gs ON gm.group_id = gs.group_id
                 WHERE gm.user_id = $1
                 AND gs.starpath_id = $2
+                AND g.status = 'active'
             )
             "#,
         )
