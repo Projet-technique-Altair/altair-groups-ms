@@ -1,12 +1,50 @@
-#![allow(dead_code)]
-
+/**
+ * @file assignments — group resource assignment models (labs & starpaths).
+ *
+ * @remarks
+ * This module defines the data structures used to represent associations between
+ * groups and their assigned resources:
+ *
+ *  - Labs (`GroupLab`)
+ *  - Starpaths (`GroupStarpath`)
+ *
+ * It separates database-level representations (`*Row`) from API-facing models
+ * to ensure a clean boundary between persistence and exposure layers.
+ *
+ * Design details:
+ *
+ *  - `GroupLabRow` and `GroupStarpathRow`
+ *      → Direct mappings of database rows (used by SQLx)
+ *      → Include both `group_id` and resource identifiers
+ *
+ *  - `GroupLab` and `GroupStarpath`
+ *      → Simplified structures exposed to the API
+ *      → Only include the resource identifier (lab_id / starpath_id)
+ *      → Avoid leaking unnecessary internal data (like group_id redundancy)
+ *
+ *  - `From<Row>` implementations
+ *      → Provide automatic conversion from database models to API models
+ *      → Keep transformation logic centralized and reusable
+ *
+ * This design ensures:
+ *
+ *  - Clear separation between database schema and API contracts
+ *  - Minimal payloads returned to clients
+ *  - Easier evolution of internal data structures without breaking the API
+ *
+ * Used in:
+ *
+ *  - Group assignment endpoints (assign/remove/list labs & starpaths)
+ *  - Gateway responses when fetching group content
+ *
+ * @packageDocumentation
+ */
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupLabRow {
-    pub group_id: Uuid,
     pub lab_id: Uuid,
 }
 
@@ -23,7 +61,6 @@ impl From<GroupLabRow> for GroupLab {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct GroupStarpathRow {
-    pub group_id: Uuid,
     pub starpath_id: Uuid,
 }
 

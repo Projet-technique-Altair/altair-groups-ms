@@ -1,5 +1,31 @@
+/**
+ * @file routes — application route registration.
+ *
+ * @remarks
+ * Defines and registers all HTTP routes for the Groups service.
+ *
+ *  - Mounts feature routes (groups, health)
+ *  - Binds endpoints to their handlers
+ *  - Attaches shared application state (`AppState`)
+ *
+ * Route categories:
+ *
+ *  - Health (`/health`)
+ *  - Groups CRUD (`/groups`, `/mygroups`)
+ *  - Members management
+ *  - Resource assignments (labs & starpaths)
+ *  - Internal access checks (`/internal/*`)
+ *
+ * Key characteristics:
+ *
+ *  - Centralized routing configuration
+ *  - Clear separation between route definition and handler logic
+ *  - Internal routes exposed for inter-service communication
+ *
+ * @packageDocumentation
+ */*/
 use axum::{
-    routing::{delete, get},
+    routing::{delete, get, patch},
     Router,
 };
 
@@ -7,9 +33,11 @@ use crate::state::AppState;
 
 use crate::routes::{
     groups::{
-        add_member, assign_lab, assign_starpath, create_group, delete_group, get_group_by_id,
-        list_groups, list_labs, list_members, list_starpaths, remove_member, unassign_lab,
-        unassign_starpath, update_group, my_groups, check_lab_access, check_starpath_access,
+        add_member, assign_lab, assign_starpath, check_lab_access, check_starpath_access,
+        create_group, delete_group, get_admin_group_detail, get_group_by_id,
+        list_admin_user_groups, list_groups, list_groups_admin, list_labs, list_members,
+        list_starpaths, my_groups, remove_member, unassign_lab, unassign_starpath, update_group,
+        update_group_status_admin,
     },
     health::health,
 };
@@ -17,16 +45,20 @@ use crate::routes::{
 pub mod groups;
 pub mod health;
 
-//// AJOUTER UN TRUC SUR LABS POUR L'AJOUTER DANS UN GROUP À LA CRÉATION
-
 pub fn init_routes() -> Router<AppState> {
     Router::new()
         // Health
         .route("/health", get(health))
         // Groups CRUD
+        .route("/admin/groups", get(list_groups_admin))
+        .route("/admin/groups/:id/detail", get(get_admin_group_detail))
+        .route("/admin/groups/:id/status", patch(update_group_status_admin))
+        .route("/admin/users/:id/groups", get(list_admin_user_groups))
         .route("/groups", get(list_groups).post(create_group)) //faire sécu quand on aura mis public/privé
         .route("/mygroups", get(my_groups))
-        .route("/groups/:id", get(get_group_by_id).put(update_group).delete(delete_group),
+        .route(
+            "/groups/:id",
+            get(get_group_by_id).put(update_group).delete(delete_group),
         )
         // Members
         .route("/groups/:id/members", get(list_members).post(add_member)) //uniquement le creator
@@ -35,8 +67,14 @@ pub fn init_routes() -> Router<AppState> {
         .route("/groups/:id/labs", get(list_labs).post(assign_lab))
         .route("/groups/:id/labs/:lab_id", delete(unassign_lab))
         // Starpaths assignments
-        .route("/groups/:id/starpaths", get(list_starpaths).post(assign_starpath))
-        .route("/groups/:id/starpaths/:starpath_id", delete(unassign_starpath))
+        .route(
+            "/groups/:id/starpaths",
+            get(list_starpaths).post(assign_starpath),
+        )
+        .route(
+            "/groups/:id/starpaths/:starpath_id",
+            delete(unassign_starpath),
+        )
         // Verifications
         .route("/internal/access/lab", get(check_lab_access))
         .route("/internal/access/starpath", get(check_starpath_access))

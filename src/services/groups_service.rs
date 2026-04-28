@@ -1,14 +1,52 @@
+/**
+ * @file groups_service — business logic for group management.
+ *
+ * @remarks
+ * This service handles all core operations related to Groups in Altaïr:
+ *
+ *  - Group lifecycle (create, read, update, delete)
+ *  - Membership management (users & roles)
+ *  - Resource assignments (labs & starpaths)
+ *  - Access checks (membership and resource access)
+ *
+ * It acts as the bridge between:
+ *
+ *  - The database (PostgreSQL via SQLx)
+ *  - The HTTP layer (handlers)
+ *
+ * Key characteristics:
+ *
+ *  - Direct SQL queries (no ORM) for control and performance
+ *  - Strong typing with UUIDs
+ *  - Idempotent assignments (`ON CONFLICT DO NOTHING`)
+ *  - Explicit error handling via `AppError`
+ *
+ * Access control:
+ *
+ *  - Helper methods (`is_member`, `user_has_access_*`) are used
+ *    by handlers and gateway to enforce permissions.
+ *
+ * @packageDocumentation
+ */
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     models::{
-        assignments::{GroupLabRow, GroupStarpathRow, GroupLab},
+        assignments::{GroupLab, GroupLabRow, GroupStarpath, GroupStarpathRow},
         group::{Group, GroupRow},
         member::{GroupMember, GroupMemberRow},
     },
 };
+
+#[derive(serde::Serialize)]
+pub struct AdminGroupDetail {
+    pub group: Group,
+    pub members: Vec<GroupMember>,
+    pub labs: Vec<GroupLab>,
+    pub starpaths: Vec<GroupStarpath>,
+}
 
 #[derive(Clone)]
 pub struct GroupsService {
@@ -30,6 +68,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -43,6 +82,59 @@ impl GroupsService {
         rows.into_iter().map(Group::try_from).collect()
     }
 
+    pub async fn list_groups_admin(
+        &self,
+        query: Option<String>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Group>, i64), AppError> {
+        let query_pattern = query
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .map(|value| format!("%{}%", value));
+
+        let rows = sqlx::query_as::<_, GroupRow>(
+            r#"
+            SELECT
+                group_id,
+                creator_id,
+                name,
+                description,
+                status,
+                created_by,
+                created_at
+            FROM groups
+            WHERE ($1::TEXT IS NULL OR name ILIKE $1 OR description ILIKE $1)
+            ORDER BY created_at DESC
+            LIMIT $2
+            OFFSET $3
+            "#,
+        )
+        .bind(query_pattern.as_deref())
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        let total = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM groups
+            WHERE ($1::TEXT IS NULL OR name ILIKE $1 OR description ILIKE $1)
+            "#,
+        )
+        .bind(query_pattern.as_deref())
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        rows.into_iter()
+            .map(Group::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map(|items| (items, total))
+    }
+
     pub async fn list_groups_for_user(&self, user_id: Uuid) -> Result<Vec<Group>, AppError> {
         let rows = sqlx::query_as::<_, GroupRow>(
             r#"
@@ -51,6 +143,7 @@ impl GroupsService {
                 g.creator_id,
                 g.name,
                 g.description,
+                g.status,
                 g.created_by,
                 g.created_at
             FROM groups g
@@ -80,6 +173,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -95,7 +189,9 @@ impl GroupsService {
         rows.into_iter().map(Group::try_from).collect()
     }
 
-
+    // ==========================
+    // GET /groups_by_id
+    // ==========================
     pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
@@ -104,6 +200,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             FROM groups
@@ -118,6 +215,9 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    // ==========================
+    // POST /group
+    // ==========================
     pub async fn create_group(
         &self,
         name: String,
@@ -127,13 +227,14 @@ impl GroupsService {
     ) -> Result<Group, AppError> {
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
-            INSERT INTO groups (name, description, creator_id, created_by)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO groups (name, description, creator_id, created_by, status)
+            VALUES ($1, $2, $3, $4, 'active')
             RETURNING
                 group_id,
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             "#,
@@ -149,6 +250,9 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    // ==========================
+    // PUT /mygroup_id
+    // ==========================
     pub async fn update_group(
         &self,
         group_id: Uuid,
@@ -166,6 +270,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                status,
                 created_by,
                 created_at
             "#,
@@ -180,6 +285,61 @@ impl GroupsService {
         Group::try_from(row)
     }
 
+    pub async fn update_group_status(
+        &self,
+        group_id: Uuid,
+        status: &str,
+    ) -> Result<Group, AppError> {
+        if !matches!(status, "active" | "locked") {
+            return Err(AppError::BadRequest(
+                "Group status must be active or locked".into(),
+            ));
+        }
+
+        let row = sqlx::query_as::<_, GroupRow>(
+            r#"
+            UPDATE groups
+            SET status = $1
+            WHERE group_id = $2
+            RETURNING
+                group_id,
+                creator_id,
+                name,
+                description,
+                status,
+                created_by,
+                created_at
+            "#,
+        )
+        .bind(status)
+        .bind(group_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|_| AppError::NotFound("Group not found".into()))?;
+
+        Group::try_from(row)
+    }
+
+    pub async fn get_admin_group_detail(
+        &self,
+        group_id: Uuid,
+    ) -> Result<AdminGroupDetail, AppError> {
+        let group = self.get_group_by_id(group_id).await?;
+        let members = self.list_members(group_id).await?;
+        let labs = self.list_labs(group_id).await?;
+        let starpaths = self.list_starpaths(group_id).await?;
+
+        Ok(AdminGroupDetail {
+            group,
+            members,
+            labs,
+            starpaths,
+        })
+    }
+
+    // ==========================
+    // DELETE /group_id
+    // ==========================
     pub async fn delete_group(&self, group_id: Uuid) -> Result<(), AppError> {
         let result = sqlx::query(
             r#"
@@ -285,8 +445,10 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        //Ok(rows.into_iter().map(|r| r.lab_id).collect())
-        Ok(rows.into_iter().map(|r| GroupLab { lab_id: r.lab_id }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| GroupLab { lab_id: r.lab_id })
+            .collect())
     }
 
     pub async fn assign_lab(&self, group_id: Uuid, lab_id: Uuid) -> Result<(), AppError> {
@@ -329,7 +491,7 @@ impl GroupsService {
 
     // ========= STARPATH ASSIGNMENTS =========
 
-    pub async fn list_starpaths(&self, group_id: Uuid) -> Result<Vec<Uuid>, AppError> {
+    pub async fn list_starpaths(&self, group_id: Uuid) -> Result<Vec<GroupStarpath>, AppError> {
         let rows = sqlx::query_as::<_, GroupStarpathRow>(
             r#"
             SELECT
@@ -345,7 +507,7 @@ impl GroupsService {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| r.starpath_id).collect())
+        Ok(rows.into_iter().map(GroupStarpath::from).collect())
     }
 
     pub async fn assign_starpath(&self, group_id: Uuid, starpath_id: Uuid) -> Result<(), AppError> {
@@ -390,11 +552,7 @@ impl GroupsService {
         Ok(())
     }
 
-    pub async fn is_member(
-        &self,
-        group_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<bool, AppError> {
+    pub async fn is_member(&self, group_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
         let exists = sqlx::query_scalar::<_, bool>(
             r#"
             SELECT EXISTS (
@@ -438,7 +596,6 @@ impl GroupsService {
 
         Ok(exists)
     }
-
 
     // ==========================
     // GET /user_access_starpath

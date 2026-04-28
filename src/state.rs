@@ -1,3 +1,26 @@
+/**
+ * @file state — shared application state.
+ *
+ * @remarks
+ * Defines the global state injected into all route handlers.
+ *
+ *  - Holds initialized services (e.g. `GroupsService`)
+ *  - Manages database connection pool (`PgPool`)
+ *
+ * Initialization:
+ *
+ *  - Reads `DATABASE_URL` from environment
+ *  - Establishes PostgreSQL connection
+ *  - Instantiates service layer
+ *
+ * Key characteristics:
+ *
+ *  - Shared via Axum `State`
+ *  - Cloneable for concurrent request handling
+ *  - Centralized dependency management
+ *
+ * @packageDocumentation
+ */
 use crate::services::groups_service::GroupsService;
 use sqlx::PgPool;
 

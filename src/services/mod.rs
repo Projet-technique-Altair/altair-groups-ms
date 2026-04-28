@@ -1,2 +1,2 @@
-pub mod groups_service;
 pub mod extractor;
+pub mod groups_service;
