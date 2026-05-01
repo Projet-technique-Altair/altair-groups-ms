@@ -537,7 +537,6 @@ pub async fn unassign_starpath(
     Ok(Json(ApiResponse::success(())))
 }
 
-
 // ======================================================
 // GET access labs
 // ======================================================
