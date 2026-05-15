@@ -27,6 +27,7 @@ use sqlx::PgPool;
 #[derive(Clone)]
 pub struct AppState {
     pub groups_service: GroupsService,
+    pub internal_service_token: String,
 }
 
 impl AppState {
@@ -39,6 +40,8 @@ impl AppState {
 
         Self {
             groups_service: GroupsService::new(db),
+            internal_service_token: std::env::var("INTERNAL_SERVICE_TOKEN")
+                .unwrap_or_else(|_| "local-dev-token".into()),
         }
     }
 }

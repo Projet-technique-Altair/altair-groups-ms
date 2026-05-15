@@ -19,8 +19,10 @@
  *
  * @packageDocumentation
  */
-use axum::http::HeaderValue;
-use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use axum::http::{HeaderName, HeaderValue, Method};
+use tower_http::cors::{AllowOrigin, CorsLayer};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 mod error;
 mod models;
@@ -32,6 +34,9 @@ use crate::routes::init_routes;
 use crate::state::AppState;
 
 const DEFAULT_ALLOWED_ORIGINS: &str = "http://localhost:5173,http://localhost:3000";
+const DEFAULT_ALLOWED_METHODS: &str = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
+const DEFAULT_ALLOWED_HEADERS: &str =
+    "authorization,content-type,x-altair-user-id,x-altair-roles";
 
 fn parse_allowed_origins() -> Vec<HeaderValue> {
     std::env::var("ALLOWED_ORIGINS")
@@ -41,16 +46,37 @@ fn parse_allowed_origins() -> Vec<HeaderValue> {
         .collect()
 }
 
+fn parse_allowed_methods() -> Vec<Method> {
+    std::env::var("ALLOWED_METHODS")
+        .unwrap_or_else(|_| DEFAULT_ALLOWED_METHODS.to_string())
+        .split(',')
+        .filter_map(|method| Method::from_bytes(method.trim().as_bytes()).ok())
+        .collect()
+}
+
+fn parse_allowed_headers() -> Vec<HeaderName> {
+    std::env::var("ALLOWED_HEADERS")
+        .unwrap_or_else(|_| DEFAULT_ALLOWED_HEADERS.to_string())
+        .split(',')
+        .filter_map(|header| {
+            HeaderName::from_bytes(header.trim().to_ascii_lowercase().as_bytes()).ok()
+        })
+        .collect()
+}
+
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let state = AppState::new().await;
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(parse_allowed_origins()))
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_methods(parse_allowed_methods())
+        .allow_headers(parse_allowed_headers());
 
     let app = init_routes().with_state(state).layer(cors);
 
@@ -60,7 +86,7 @@ async fn main() {
         .await
         .expect("Failed to bind groups-ms port");
 
-    println!("Groups MS running on http://localhost:{}", port);
+    info!(port = %port, "groups-ms started");
 
     axum::serve(listener, app).await.unwrap();
 }
