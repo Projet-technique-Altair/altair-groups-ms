@@ -35,8 +35,7 @@ use crate::state::AppState;
 
 const DEFAULT_ALLOWED_ORIGINS: &str = "http://localhost:5173,http://localhost:3000";
 const DEFAULT_ALLOWED_METHODS: &str = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-const DEFAULT_ALLOWED_HEADERS: &str =
-    "authorization,content-type,x-altair-user-id,x-altair-roles";
+const DEFAULT_ALLOWED_HEADERS: &str = "authorization,content-type,x-altair-user-id,x-altair-roles";
 
 fn parse_allowed_origins() -> Vec<HeaderValue> {
     std::env::var("ALLOWED_ORIGINS")

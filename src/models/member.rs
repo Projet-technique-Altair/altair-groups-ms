@@ -16,16 +16,16 @@
  * Role system:
  *
  *  - `Owner`
- *      → Full control over the group (creation, deletion, role management)
+ * - → Full control over the group (creation, deletion, role management)
  *
  *  - `Admin`
- *      → Elevated permissions (manage members, assign resources)
+ * - → Elevated permissions (manage members, assign resources)
  *
  *  - `Teacher`
- *      → Can manage learning content (labs/starpaths) within the group
+ * - → Can manage learning content (labs/starpaths) within the group
  *
  *  - `Member`
- *      → Default role with basic access to assigned content
+ * - → Default role with basic access to assigned content
  *
  * Serialization:
  *
@@ -35,24 +35,24 @@
  * Data model separation:
  *
  *  - `GroupMemberRow`
- *      → Direct mapping of database rows (SQLx)
- *      → Stores role as a raw `String`
+ * - → Direct mapping of database rows (SQLx)
+ * - → Stores role as a raw `String`
  *
  *  - `GroupMember`
- *      → Strongly-typed API model
- *      → Uses `GroupRole` enum for type safety
+ * - → Strongly-typed API model
+ * - → Uses `GroupRole` enum for type safety
  *
  * Conversion strategy:
  *
  *  - `TryFrom<GroupMemberRow> for GroupMember`
- *      → Validates and converts raw role strings into `GroupRole`
- *      → Ensures invalid roles cannot propagate to the application layer
- *      → Returns `AppError` if an unknown role is encountered
+ * - → Validates and converts raw role strings into `GroupRole`
+ * - → Ensures invalid roles cannot propagate to the application layer
+ * - → Returns `AppError` if an unknown role is encountered
  *
  * Utility:
  *
  *  - `GroupRole::as_str()`
- *      → Provides a normalized string representation for persistence or comparisons
+ * - → Provides a normalized string representation for persistence or comparisons
  *
  * Design considerations:
  *
