@@ -542,8 +542,10 @@ pub async fn unassign_starpath(
 // ======================================================
 pub async fn check_lab_access(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<AccessLabQuery>,
 ) -> Result<Json<ApiResponse<bool>>, AppError> {
+    ensure_internal_access(&state, &headers)?;
     let allowed = state
         .groups_service
         .user_has_access_to_lab(params.user_id, params.lab_id)
@@ -557,14 +559,29 @@ pub async fn check_lab_access(
 // ======================================================
 pub async fn check_starpath_access(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<AccessStarpathQuery>,
 ) -> Result<Json<ApiResponse<bool>>, AppError> {
+    ensure_internal_access(&state, &headers)?;
     let allowed = state
         .groups_service
         .user_has_access_to_starpath(params.user_id, params.starpath_id)
         .await?;
 
     Ok(Json(ApiResponse::success(allowed)))
+}
+
+fn ensure_internal_access(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
+    let provided = headers
+        .get("x-altair-internal-token")
+        .and_then(|value| value.to_str().ok());
+    if provided == Some(state.internal_service_token.as_str()) {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden(
+            "Internal service token is required".into(),
+        ))
+    }
 }
 
 // ======================================================

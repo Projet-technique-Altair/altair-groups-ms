@@ -20,6 +20,8 @@ uuid = { version = "1", features = ["serde", "v4"] }
 # Errors / env
 thiserror = "1"
 dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Database
 sqlx = { version = "0.8", features = [

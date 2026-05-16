@@ -14,17 +14,17 @@
  * Design details:
  *
  *  - `GroupLabRow` and `GroupStarpathRow`
- *      → Direct mappings of database rows (used by SQLx)
- *      → Include both `group_id` and resource identifiers
+ * - → Direct mappings of database rows (used by SQLx)
+ * - → Include both `group_id` and resource identifiers
  *
  *  - `GroupLab` and `GroupStarpath`
- *      → Simplified structures exposed to the API
- *      → Only include the resource identifier (lab_id / starpath_id)
- *      → Avoid leaking unnecessary internal data (like group_id redundancy)
+ * - → Simplified structures exposed to the API
+ * - → Only include the resource identifier (lab_id / starpath_id)
+ * - → Avoid leaking unnecessary internal data (like group_id redundancy)
  *
  *  - `From<Row>` implementations
- *      → Provide automatic conversion from database models to API models
- *      → Keep transformation logic centralized and reusable
+ * - → Provide automatic conversion from database models to API models
+ * - → Keep transformation logic centralized and reusable
  *
  * This design ensures:
  *

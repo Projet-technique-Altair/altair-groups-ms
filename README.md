@@ -30,14 +30,14 @@ This service provides CRUD operations for groups, member management with role-ba
 
 ## ⚠️ Security Notice
 
-**This service is currently in MVP stage with NO AUTHORIZATION.**
+**This service trusts identity headers injected by the API Gateway.**
 
-- ❌ **No auth validation** – All endpoints are publicly accessible
-- ❌ **No ownership checks** – Anyone can modify any group
-- ❌ **No role enforcement** – Role field exists but is not validated
-- ❌ **Creator not auto-added** – Group creator is not automatically made a member
+- `x-altair-user-id` is required on protected routes.
+- Admin-only routes enforce the `admin` role.
+- Group writes enforce owner-or-admin checks.
+- Group creation derives creator fields from the authenticated caller headers.
 
-**Deployment requirement:** Must be migrated to Gateway-based authorization before production.
+**Deployment requirement:** keep the service private behind the authenticated Gateway because it does not validate JWTs itself.
 
 ---
 
@@ -640,8 +640,9 @@ The service is containerized and deployed to **Google Cloud Run** as an internal
 ### Runtime Requirements
 
 - `DATABASE_URL` environment variable (Cloud SQL or external PostgreSQL)
-- Must be deployed in **private network** (no public access in MVP)
-- Should be behind authenticated API Gateway (not yet implemented)
+- Must be deployed in **private network** with no public invoker binding.
+- Authenticated user traffic must come through the Gateway.
+- Internal access-check routes must receive `INTERNAL_SERVICE_TOKEN` in deployed environments.
 
 ### Service Account Permissions
 
@@ -660,14 +661,7 @@ The Cloud Run service account requires:
 
 ## Known Issues & Limitations
 
-### 🔴 Critical Issues
-
-- **No authorization** – All endpoints publicly accessible
-- **No ownership validation** – Anyone can modify any group
-- **Creator not auto-added** – Group creator must manually join as member
-- **Role not settable** – Can only add members with `"member"` role
-
-### 🟡 Operational Gaps
+### Operational Gaps
 
 - **Hardcoded port** – `PORT` env variable is ignored
 - **Missing CI/CD** – GitHub Actions workflow not present in main branch
@@ -732,18 +726,15 @@ The Cloud Run service account requires:
 
 ## Project Status
 
-**⚠️ Current Status: MVP (No Authorization)**
+**Current Status: gateway-trusted service with route-level authorization**
 
-This microservice is **functional for MVP deployment** with core group management operational. Critical authorization gaps must be addressed before production.
+This microservice is functional with group ownership and admin checks enforced in handlers. It still relies on the Gateway trust boundary and therefore must remain internal-only.
 
 **Known limitations to address for production:**
 
-1. Add Gateway-based authorization
-2. Fix hardcoded port binding
-3. Auto-add creator as owner on group creation
-4. Add role management endpoints
-5. Restore CI/CD and security scanning
-6. Expose assignment metadata in API
+1. Keep gateway-only exposure enforced at the platform layer
+2. Add role management endpoints
+3. Expose assignment metadata in API
 
 **Maintainers:** Altaïr Platform Team
 

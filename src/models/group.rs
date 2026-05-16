@@ -14,19 +14,19 @@
  * The module separates database representation from API exposure:
  *
  *  - `GroupRow`
- *      → პირდაპირ mapping of a database row (used by SQLx)
- *      → Includes all persisted fields as stored in the database
+ * - → პირდაპირ mapping of a database row (used by SQLx)
+ * - → Includes all persisted fields as stored in the database
  *
  *  - `Group`
- *      → Public-facing model used in API responses and internal logic
- *      → Mirrors the database structure for simplicity and consistency
+ * - → Public-facing model used in API responses and internal logic
+ * - → Mirrors the database structure for simplicity and consistency
  *
  * Conversion strategy:
  *
  *  - `TryFrom<GroupRow> for Group`
- *      → Provides a controlled transformation layer
- *      → Allows validation or transformation logic to be added later
- *      → Returns an `AppError` to integrate with the global error system
+ * - → Provides a controlled transformation layer
+ * - → Allows validation or transformation logic to be added later
+ * - → Returns an `AppError` to integrate with the global error system
  *
  * Field overview:
  *
