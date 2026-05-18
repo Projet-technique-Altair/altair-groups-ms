@@ -53,6 +53,21 @@ pub struct GroupsService {
     db: PgPool,
 }
 
+fn normalize_language(language: Option<String>) -> Result<String, AppError> {
+    let language = language
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "en".to_string());
+
+    if matches!(language.as_str(), "en" | "fr") {
+        Ok(language)
+    } else {
+        Err(AppError::BadRequest(
+            "language must be en or fr".to_string(),
+        ))
+    }
+}
+
 impl GroupsService {
     pub fn new(db: PgPool) -> Self {
         Self { db }
@@ -68,6 +83,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -100,6 +116,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -143,6 +160,7 @@ impl GroupsService {
                 g.creator_id,
                 g.name,
                 g.description,
+                g.language,
                 g.status,
                 g.created_by,
                 g.created_at
@@ -173,6 +191,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -200,6 +219,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -222,18 +242,21 @@ impl GroupsService {
         &self,
         name: String,
         description: Option<String>,
+        language: Option<String>,
         creator_id: Uuid,
         created_by: Uuid,
     ) -> Result<Group, AppError> {
+        let language = normalize_language(language)?;
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
-            INSERT INTO groups (name, description, creator_id, created_by, status)
-            VALUES ($1, $2, $3, $4, 'active')
+            INSERT INTO groups (name, description, language, creator_id, created_by, status)
+            VALUES ($1, $2, $3, $4, $5, 'active')
             RETURNING
                 group_id,
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -241,6 +264,7 @@ impl GroupsService {
         )
         .bind(name)
         .bind(description)
+        .bind(language)
         .bind(creator_id)
         .bind(created_by)
         .fetch_one(&self.db)
@@ -258,18 +282,22 @@ impl GroupsService {
         group_id: Uuid,
         name: String,
         description: Option<String>,
+        language: Option<String>,
     ) -> Result<Group, AppError> {
+        let language = language.map(|value| normalize_language(Some(value))).transpose()?;
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
             UPDATE groups
             SET name = $1,
-                description = $2
-            WHERE group_id = $3
+                description = $2,
+                language = COALESCE($3, language)
+            WHERE group_id = $4
             RETURNING
                 group_id,
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
@@ -277,6 +305,7 @@ impl GroupsService {
         )
         .bind(name)
         .bind(description)
+        .bind(language)
         .bind(group_id)
         .fetch_one(&self.db)
         .await
@@ -306,6 +335,7 @@ impl GroupsService {
                 creator_id,
                 name,
                 description,
+                language,
                 status,
                 created_by,
                 created_at
