@@ -216,6 +216,7 @@ pub async fn create_group(
         .create_group(
             payload.name,
             payload.description,
+            payload.language,
             caller.user_id,
             caller.user_id,
         )
@@ -248,7 +249,7 @@ pub async fn update_group(
 
     let group = state
         .groups_service
-        .update_group(group_id, payload.name, payload.description)
+        .update_group(group_id, payload.name, payload.description, payload.language)
         .await?;
 
     Ok(Json(ApiResponse::success(group)))
@@ -592,12 +593,14 @@ fn ensure_internal_access(state: &AppState, headers: &HeaderMap) -> Result<(), A
 pub struct CreateGroupPayload {
     pub name: String,
     pub description: Option<String>,
+    pub language: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct UpdateGroupPayload {
     pub name: String,
     pub description: Option<String>,
+    pub language: Option<String>,
 }
 
 #[derive(Deserialize)]
