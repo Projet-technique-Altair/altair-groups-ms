@@ -284,7 +284,9 @@ impl GroupsService {
         description: Option<String>,
         language: Option<String>,
     ) -> Result<Group, AppError> {
-        let language = language.map(|value| normalize_language(Some(value))).transpose()?;
+        let language = language
+            .map(|value| normalize_language(Some(value)))
+            .transpose()?;
         let row = sqlx::query_as::<_, GroupRow>(
             r#"
             UPDATE groups
@@ -656,5 +658,25 @@ impl GroupsService {
         .await?;
 
         Ok(exists)
+    }
+
+    pub async fn list_user_starpath_ids(&self, user_id: Uuid) -> Result<Vec<Uuid>, AppError> {
+        let rows = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT DISTINCT gs.starpath_id
+            FROM group_members gm
+            JOIN groups g ON gm.group_id = g.group_id
+            JOIN group_starpaths gs ON gm.group_id = gs.group_id
+            WHERE gm.user_id = $1
+              AND g.status = 'active'
+            ORDER BY gs.starpath_id
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(rows)
     }
 }
