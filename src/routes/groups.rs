@@ -249,7 +249,12 @@ pub async fn update_group(
 
     let group = state
         .groups_service
-        .update_group(group_id, payload.name, payload.description, payload.language)
+        .update_group(
+            group_id,
+            payload.name,
+            payload.description,
+            payload.language,
+        )
         .await?;
 
     Ok(Json(ApiResponse::success(group)))
@@ -572,6 +577,21 @@ pub async fn check_starpath_access(
     Ok(Json(ApiResponse::success(allowed)))
 }
 
+pub async fn list_internal_user_starpaths(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<InternalUserQuery>,
+) -> Result<Json<ApiResponse<Vec<Uuid>>>, AppError> {
+    ensure_internal_access(&state, &headers)?;
+
+    let starpath_ids = state
+        .groups_service
+        .list_user_starpath_ids(params.user_id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(starpath_ids)))
+}
+
 fn ensure_internal_access(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
     let provided = headers
         .get("x-altair-internal-token")
@@ -633,6 +653,11 @@ pub struct AccessLabQuery {
 pub struct AccessStarpathQuery {
     pub user_id: Uuid,
     pub starpath_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct InternalUserQuery {
+    pub user_id: Uuid,
 }
 
 #[derive(Deserialize)]
